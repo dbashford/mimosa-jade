@@ -1,52 +1,27 @@
-define(function (){
+define(function() {
 
-  var exports = {}
-
-  /*!
-  * Jade - runtime
-  * Copyright(c) 2010 TJ Holowaychuk <tj@vision-media.ca>
-  * MIT Licensed
-  */
+  var exports = {};
 
   /**
-  * Lame Array.isArray() polyfill for now.
-  */
-
-  if (!Array.isArray) {
-    Array.isArray = function(arr){
-      return '[object Array]' == Object.prototype.toString.call(arr);
-    };
-  }
-
-  /**
-  * Lame Object.keys() polyfill for now.
-  */
-
-  if (!Object.keys) {
-    Object.keys = function(obj){
-      var arr = [];
-      for (var key in obj) {
-        if (obj.hasOwnProperty(key)) {
-          arr.push(key);
-        }
-      }
-      return arr;
-    }
-  }
-
-  /**
-  * Merge two attribute objects giving precedence
-  * to values in object `b`. Classes are special-cased
-  * allowing for arrays and merging/joining appropriately
-  * resulting in a string.
-  *
-  * @param {Object} a
-  * @param {Object} b
-  * @return {Object} a
-  * @api private
-  */
+   * Merge two attribute objects giving precedence
+   * to values in object `b`. Classes are special-cased
+   * allowing for arrays and merging/joining appropriately
+   * resulting in a string.
+   *
+   * @param {Object} a
+   * @param {Object} b
+   * @return {Object} a
+   * @api private
+   */
 
   exports.merge = function merge(a, b) {
+    if (arguments.length === 1) {
+      var attrs = a[0];
+      for (var i = 1; i < a.length; i++) {
+        attrs = merge(attrs, a[i]);
+      }
+      return attrs;
+    }
     var ac = a['class'];
     var bc = b['class'];
 
@@ -68,105 +43,133 @@ define(function (){
   };
 
   /**
-  * Filter null `val`s.
-  *
-  * @param {*} val
-  * @return {Boolean}
-  * @api private
-  */
+   * Filter null `val`s.
+   *
+   * @param {*} val
+   * @return {Boolean}
+   * @api private
+   */
 
   function nulls(val) {
     return val != null && val !== '';
   }
 
   /**
-  * join array as classes.
-  *
-  * @param {*} val
-  * @return {String}
-  * @api private
-  */
-
+   * join array as classes.
+   *
+   * @param {*} val
+   * @return {String}
+   */
+  exports.joinClasses = joinClasses;
   function joinClasses(val) {
     return Array.isArray(val) ? val.map(joinClasses).filter(nulls).join(' ') : val;
   }
 
   /**
-  * Render the given attributes object.
-  *
-  * @param {Object} obj
-  * @param {Object} escaped
-  * @return {String}
-  * @api private
-  */
+   * Render the given classes.
+   *
+   * @param {Array} classes
+   * @param {Array.<Boolean>} escaped
+   * @return {String}
+   */
+  exports.cls = function cls(classes, escaped) {
+    var buf = [];
+    for (var i = 0; i < classes.length; i++) {
+      if (escaped && escaped[i]) {
+        buf.push(exports.escape(joinClasses([classes[i]])));
+      } else {
+        buf.push(joinClasses(classes[i]));
+      }
+    }
+    var text = joinClasses(buf);
+    if (text.length) {
+      return ' class="' + text + '"';
+    } else {
+      return '';
+    }
+  };
 
-  exports.attrs = function attrs(obj, escaped){
-    var buf = []
-      , terse = obj.terse;
+  /**
+   * Render the given attribute.
+   *
+   * @param {String} key
+   * @param {String} val
+   * @param {Boolean} escaped
+   * @param {Boolean} terse
+   * @return {String}
+   */
+  exports.attr = function attr(key, val, escaped, terse) {
+    if ('boolean' == typeof val || null == val) {
+      if (val) {
+        return ' ' + (terse ? key : key + '="' + key + '"');
+      } else {
+        return '';
+      }
+    } else if (0 == key.indexOf('data') && 'string' != typeof val) {
+      return ' ' + key + "='" + JSON.stringify(val).replace(/'/g, '&apos;') + "'";
+    } else if (escaped) {
+      return ' ' + key + '="' + exports.escape(val) + '"';
+    } else {
+      return ' ' + key + '="' + val + '"';
+    }
+  };
 
-    delete obj.terse;
-    var keys = Object.keys(obj)
-      , len = keys.length;
+  /**
+   * Render the given attributes object.
+   *
+   * @param {Object} obj
+   * @param {Object} escaped
+   * @return {String}
+   */
+  exports.attrs = function attrs(obj, terse){
+    var buf = [];
 
-    if (len) {
-      buf.push('');
-      for (var i = 0; i < len; ++i) {
+    var keys = Object.keys(obj);
+
+    if (keys.length) {
+      for (var i = 0; i < keys.length; ++i) {
         var key = keys[i]
           , val = obj[key];
 
-        if ('boolean' == typeof val || null == val) {
-          if (val) {
-            terse
-              ? buf.push(key)
-              : buf.push(key + '="' + key + '"');
+        if ('class' == key) {
+          if (val = joinClasses(val)) {
+            buf.push(' ' + key + '="' + val + '"');
           }
-        } else if (0 == key.indexOf('data') && 'string' != typeof val) {
-          buf.push(key + "='" + JSON.stringify(val) + "'");
-        } else if ('class' == key) {
-          if (escaped && escaped[key]){
-            if (val = exports.escape(joinClasses(val))) {
-              buf.push(key + '="' + val + '"');
-            }
-          } else {
-            if (val = joinClasses(val)) {
-              buf.push(key + '="' + val + '"');
-            }
-          }
-        } else if (escaped && escaped[key]) {
-          buf.push(key + '="' + exports.escape(val) + '"');
         } else {
-          buf.push(key + '="' + val + '"');
+          buf.push(exports.attr(key, val, false, terse));
         }
       }
     }
 
-    return buf.join(' ');
+    return buf.join('');
   };
 
   /**
-  * Escape the given string of `html`.
-  *
-  * @param {String} html
-  * @return {String}
-  * @api private
-  */
+   * Escape the given string of `html`.
+   *
+   * @param {String} html
+   * @return {String}
+   * @api private
+   */
 
   exports.escape = function escape(html){
-    return String(html)
+    var result = String(html)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+    if (result === '' + html) return html;
+    else return result;
   };
 
   /**
-  * bad call to require 'fs' means need to cut this out.
-  *
-  * @param {Error} err
-  * @param {String} filename
-  * @param {String} lineno
-  * @api private
-  */
+   * bad call to require 'fs' means need to cut this out.
+   *
+   * @param {Error} err
+   * @param {String} filename
+   * @param {String} lineno
+   * @api private
+   */
 
   exports.rethrow = function rethrow(err, filename, lineno, str){
     throw err;

@@ -24,7 +24,7 @@ exports.validate = function( config, validators ) {
   var errors = [];
 
   if ( validators.ifExistsIsObject( errors, "jade config", config.jade ) ) {
-    validators.ifExistsIsObject( errors, "jade compileOptions", config.jade.compileOptions )
+    validators.ifExistsIsObject( errors, "jade compileOptions", config.jade.compileOptions );
 
     if ( !config.jade.lib ) {
       config.jade.lib = require( "jade" );
